@@ -1,7 +1,8 @@
 # 🌦️ Tempo e Qualidade do Ar
 
 **Rafael Soares de Oliveira**  
-Feito para o Projeto de Bloco: Engenharia de Dados: Big Data [25E1_5]` do Infet  
+Feito para o Projeto de Bloco: Engenharia de Dados: Big Data [25E1_5]` do Infnet  
+https://github.com/RafaelOlivra/projeto-de-bloco-engenharia-de-dados-big-data  
 Junho de 2025
 
 Este projeto implementa um pipeline de dados para coleta, processamento e disponibilização de informações meteorológicas e de qualidade do ar, utilizando a **Arquitetura Lambda** com tecnologias modernas como Kafka, Spark, MinIO, Airflow e FastAPI.
