@@ -1,0 +1,42 @@
+# Bytecode Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtualenv
+.env/
+.venv/
+venv/
+ENV/
+env/
+
+# Arquivos de configuração pessoais
+*.env
+
+# Arquivos Jupyter Notebook gerados automaticamente
+.ipynb_checkpoints/
+
+# Docker
+docker/volumes/
+docker-compose.override.yml
+
+# Jars
+*.jar
+
+# Logs
+*.log
+logs/
+**/*.log
+
+# Data
+data/
+
+# PyCharm/VSCode
+.idea/
+.vscode/
+*.code-workspace
+
+# Sistema operacional
+.DS_Store
+Thumbs.db

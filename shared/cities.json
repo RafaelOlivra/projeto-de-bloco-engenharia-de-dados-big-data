@@ -1,0 +1,23 @@
+{
+  "SP-São Paulo": { "lat": -23.5505, "lon": -46.6333 },
+  "SP-Guarulhos": { "lat": -23.4545, "lon": -46.5333 },
+  "SP-Campinas": { "lat": -22.9099, "lon": -47.0626 },
+  "SP-São Bernardo do Campo": { "lat": -23.6914, "lon": -46.5646 },
+  "SP-São José dos Campos": { "lat": -23.1896, "lon": -45.8841 },
+  "SP-Santo André": { "lat": -23.6639, "lon": -46.5383 },
+  "SP-Ribeirão Preto": { "lat": -21.1784, "lon": -47.8064 },
+  "SP-Osasco": { "lat": -23.5329, "lon": -46.7926 },
+  "SP-Sorocaba": { "lat": -23.5018, "lon": -47.4583 },
+  "SP-Mauá": { "lat": -23.6677, "lon": -46.4613 },
+  "SP-São José do Rio Preto": { "lat": -20.8114, "lon": -49.3759 },
+  "SP-Mogi das Cruzes": { "lat": -23.5208, "lon": -46.1854 },
+  "SP-Santos": { "lat": -23.9608, "lon": -46.3336 },
+  "SP-Diadema": { "lat": -23.6813, "lon": -46.6228 },
+  "SP-Jundiaí": { "lat": -23.1857, "lon": -46.8978 },
+  "SP-Piracicaba": { "lat": -22.7253, "lon": -47.6492 },
+  "SP-Carapicuíba": { "lat": -23.5225, "lon": -46.8355 },
+  "SP-Bauru": { "lat": -22.3145, "lon": -49.0586 },
+  "SP-Itaquaquecetuba": { "lat": -23.4867, "lon": -46.3486 },
+  "SP-Franca": { "lat": -20.5382, "lon": -47.4009 },
+  "SP-Itaberá": {"lat": -23.2372, "lon": -47.4971}
+}

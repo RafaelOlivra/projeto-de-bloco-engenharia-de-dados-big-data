@@ -1,0 +1,286 @@
+services:
+  # Zookeeper
+  zookeeper:
+    image: bitnami/zookeeper:3.8
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    env_file:
+      - .env
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    networks:
+      - weather_net
+
+  # Kafka Broker
+  kafka:
+    image: bitnami/kafka:3.5.1
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    env_file:
+      - .env
+    environment:
+      KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      ALLOW_PLAINTEXT_LISTENER: yes
+      KAFKA_BROKER_ID: 1
+    depends_on:
+      - zookeeper
+    networks:
+      - weather_net
+
+  # Kafka Producers for Weather Data
+  weather-producer-a:
+    container_name: weather-producer-a
+    build:
+      context: ./etl/kafka
+    env_file:
+      - .env
+    environment:
+      SCRIPT: weather/producer.py
+      WEATHER_RANGES: SP{A-H}
+    depends_on:
+      - kafka
+    volumes:
+      - ./shared/cities.json:/app/cities.json
+    networks:
+      - weather_net
+    restart: always
+
+  weather-producer-b:
+    container_name: weather-producer-b
+    build:
+      context: ./etl/kafka
+    env_file:
+      - .env
+    environment:
+      SCRIPT: weather/producer.py
+      WEATHER_RANGES: SP{H-Z}
+    depends_on:
+      - kafka
+    volumes:
+      - ./shared/cities.json:/app/cities.json
+    networks:
+      - weather_net
+    restart: always
+
+  airquality-producer-a:
+    container_name: airquality-producer-a
+    build:
+      context: ./etl/kafka
+    env_file:
+      - .env
+    environment:
+      SCRIPT: airquality/producer.py
+      WEATHER_RANGES: SP{A-H}
+      OPENAQ_API_KEY: ${OPENAQ_API_KEY}
+    depends_on:
+      - kafka
+    volumes:
+      - ./shared/cities.json:/app/cities.json
+    networks:
+      - weather_net
+    restart: always
+
+  airquality-producer-b:
+    container_name: airquality-producer-b
+    build:
+      context: ./etl/kafka
+    env_file:
+      - .env
+    environment:
+      SCRIPT: airquality/producer.py
+      WEATHER_RANGES: SP{H-Z}
+      OPENAQ_API_KEY: ${OPENAQ_API_KEY}
+    volumes:
+      - ./shared/cities.json:/app/cities.json
+    depends_on:
+      - kafka
+    networks:
+      - weather_net
+    restart: always
+
+  # Kafka Consumers for Weather Data
+  weather-consumer:
+    build: ./etl/kafka
+    container_name: weather-consumer
+    env_file:
+      - .env
+    environment:
+      SCRIPT: weather/consumer.py
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    depends_on:
+      - kafka
+      - minio
+    networks:
+      - weather_net
+    restart: always
+
+  airquality-consumer:
+    build: ./etl/kafka
+    container_name: airquality-consumer
+    env_file:
+      - .env
+    environment:
+      SCRIPT: airquality/consumer.py
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    depends_on:
+      - kafka
+      - minio
+    networks:
+      - weather_net
+    restart: always
+
+  # MinIO
+  minio:
+    image: minio/minio:latest
+    container_name: minio
+    env_file:
+      - .env
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - ./data/minio:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - weather_net
+
+  # Apache Airflow (Webserver + Scheduler)
+  airflow:
+    build: ./etl/airflow
+    container_name: airflow
+    depends_on:
+      - postgres
+    env_file:
+      - .env
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_POSTGRES_USER}:${AIRFLOW_POSTGRES_PASSWORD}@${AIRFLOW_POSTGRES_HOST}:${AIRFLOW_POSTGRES_PORT}/${AIRFLOW_POSTGRES_DB}
+      AIRFLOW__CORE__LOAD_EXAMPLES: False
+      _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_WWW_USER_USERNAME}
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_WWW_USER_PASSWORD}
+    volumes:
+      - ./data/airflow/logs:/opt/airflow/logs
+      - ./etl/airflow/dags:/opt/airflow/dags
+      - ./etl/airflow/dag-scripts:/opt/airflow/etl
+      - ./etl/pyspark/jars:/opt/spark/jars
+      - ./shared:/shared
+    ports:
+      - "8081:8080"
+    entrypoint: >
+      bash -c "
+        airflow db init &&
+        airflow db upgrade &&
+        echo 'Creating Airflow user... (\$AIRFLOW_WWW_USER_USERNAME | \$AIRFLOW_WWW_USER_PASSWORD)' &&
+        airflow users create --username \$AIRFLOW_WWW_USER_USERNAME --password \$AIRFLOW_WWW_USER_PASSWORD --firstname Admin --lastname User --role Admin --email admin@example.com &&
+        airflow scheduler &
+        airflow webserver
+      "
+    networks:
+      - weather_net
+
+  postgres:
+    image: postgres:13
+    container_name: postgres
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${AIRFLOW_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${AIRFLOW_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${AIRFLOW_POSTGRES_DB}
+    volumes:
+      - postgres_db:/var/lib/postgresql/data
+    networks:
+      - weather_net
+
+  # FastAPI App
+  api:
+    build: ./api
+    container_name: fastapi
+    ports:
+      - "8000:8000"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - ./api/src/:/app/
+    networks:
+      - weather_net
+
+  # Spark Master + Worker
+  spark-master:
+    build: ./etl/spark
+    container_name: spark-master
+    env_file:
+      - .env
+    environment:
+      SPARK_MODE: master
+      SPARK_USER: spark
+      SPARK_JARS_DIR: /opt/spark/jars
+      SPARK_REST_API_ENABLED: true
+      SPARK_MASTER_WEBUI_PORT: 8080
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+      - "6066:6066"
+      - "18080:18080"
+    volumes:
+      - ./data/spark/scripts:/work
+      - ./etl/pyspark/jars:/opt/spark/jars
+    networks:
+      - weather_net
+
+  spark-worker:
+    build: ./etl/spark
+    env_file:
+      - .env
+    environment:
+      SPARK_MODE: worker
+      SPARK_MASTER_URL: spark://spark-master:7077
+      SPARK_WORKER_MEMORY: 1G
+      SPARK_WORKER_CORES: 2
+      SPARK_JARS_DIR: /opt/spark/jars
+    depends_on:
+      - spark-master
+    volumes:
+      - ./data/spark/scripts:/work
+      - ./etl/pyspark/jars:/opt/spark/jars
+    networks:
+      - weather_net
+
+  # PySpark + Jupyter
+  pyspark:
+    build: ./etl/pyspark
+    container_name: pyspark
+    env_file:
+      - .env
+    environment:
+      JUPYTER_ENABLE_LAB: yes
+      JUPYTER_TOKEN: ${JUPYTER_TOKEN}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "8888:8888"
+      - "4040:4040"
+    volumes:
+      - ./data/spark/:/data
+      - ./etl/pyspark/jars/:/opt/spark/jars
+      - ./etl/pyspark/notebooks/:/work/notebooks
+      - ./shared:/work/shared
+    networks:
+      - weather_net
+
+networks:
+  weather_net:
+    driver: bridge
+
+volumes:
+  postgres_db:
