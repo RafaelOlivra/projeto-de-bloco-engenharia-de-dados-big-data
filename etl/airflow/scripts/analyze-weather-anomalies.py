@@ -1,16 +1,19 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, mean, stddev, abs, to_timestamp, hour, when, expr
+from pyspark.sql.functions import col, mean, stddev, abs, to_timestamp, hour, expr, when, split, upper
+import pandas as pd
+import numpy as np
 import os
 
 # MinIO/S3 configs
 minio_endpoint = "http://minio:9000"
 minio_user = os.environ['MINIO_ROOT_USER']
 minio_password = os.environ['MINIO_ROOT_PASSWORD']
-bucket = "raw"
+raw_bucket = "raw"
+refined_bucket = "refined"
 
 spark = (
     SparkSession
-     .builder
+    .builder
     .master("spark://spark-master:7077")
     .appName("Weather Anomaly Detection")
     .config("spark.hadoop.fs.s3a.endpoint", minio_endpoint)
@@ -24,10 +27,10 @@ spark = (
     .getOrCreate()
 )
 
-############################
+############## Análise do Clima ##############
 
 # Analiza os dados de clima (JSON)
-df_weather = spark.read.json(f"s3a://{bucket}/weather/*/*.json")
+df_weather = spark.read.json(f"s3a://{raw_bucket}/weather/*/*.json")
 df_weather.printSchema()
 
 # Converte o campo de tempo para timestamp se necessário
@@ -92,9 +95,30 @@ df_weather_anomalies.select(
 
 # Salva os resultados no S3
 df_weather_anomalies.write.mode("overwrite").parquet(
-    f"s3a://{bucket}/anomalies/weather"
+    f"s3a://{raw_bucket}/anomalies/weather"
 )
 
+############## Refinamento e Coordenadas ##############
+
+# Lê os arquivos de cidades com lat/long
+cities_df = pd.read_json("/shared/cities.json", orient="index").reset_index()
+cities_df.columns = ["city", "lat", "long"]
+cities_dict = cities_df.to_dict(orient="index")
+
+# Converte para DataFrame do Spark
+df_cities = spark.createDataFrame(list(cities_dict.values()))
+
+# Anomalias do clima
+df_weather_anomalies = df_weather_anomalies.join(df_cities, on="city", how="left")
+
+# Quebra o UF-cidade em duas colunas separadas
+df_weather_anomalies = df_weather_anomalies.withColumn("uf", upper(split("city", "-")[0])) \
+                                           .withColumn("city", split("city", "-")[1])\
+                                           .dropDuplicates()
+                                           
+df_weather_anomalies.write.mode("overwrite").parquet(f"s3a://{refined_bucket}/weather_anomalies_with_coords")
+
 ############################
+
 print("✅ Análise de clima concluída e salva no MinIO!")
 spark.stop()

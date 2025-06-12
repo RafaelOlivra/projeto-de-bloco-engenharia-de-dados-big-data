@@ -27,8 +27,8 @@ for jar in "${!jar_urls[@]}"; do
 done
 
 # Permissões do Airflow
-sudo chown -R 50000:0 ./data/airflow/logs/
-sudo chmod -R 775 ./data/airflow/logs/
+chown -R 50000:0 ./data/airflow/logs/
+chmod -R 775 ./data/airflow/logs/
 
 # Inicia o Docker Compose com 2 workers Spark
 docker-compose down

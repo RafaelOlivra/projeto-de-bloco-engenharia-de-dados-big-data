@@ -2,7 +2,8 @@ import os
 import pandas as pd
 import s3fs
 import numpy as np
-from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi import FastAPI, HTTPException
+from kafka import KafkaConsumer
 from lib.Utils import Utils
 
 from models.AirQuality import AirQualityRecord

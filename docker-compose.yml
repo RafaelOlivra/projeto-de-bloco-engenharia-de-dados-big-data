@@ -170,7 +170,7 @@ services:
     volumes:
       - ./data/airflow/logs:/opt/airflow/logs
       - ./etl/airflow/dags:/opt/airflow/dags
-      - ./etl/airflow/dag-scripts:/opt/airflow/etl
+      - ./etl/airflow/scripts:/opt/airflow/etl
       - ./etl/pyspark/jars:/opt/spark/jars
       - ./shared:/shared
     ports:

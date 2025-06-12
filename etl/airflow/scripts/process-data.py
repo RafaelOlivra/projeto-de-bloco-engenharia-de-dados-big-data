@@ -1,6 +1,7 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import expr, upper, col, to_timestamp, split
 import pandas as pd
+import numpy as np
 import os
 
 # MinIO/S3 configs
@@ -37,7 +38,7 @@ cities_dict = cities_df.to_dict(orient="index")
 df_cities = spark.createDataFrame(list(cities_dict.values()))
 df_cities.show()
 
-############################
+############## Processa dados do Clima ##############
 
 # Le os dados de clima (JSON)
 df_weather = spark.read.json(f"s3a://{raw_bucket}/weather/*/*.json")
@@ -50,12 +51,12 @@ df_weather = df_weather.join(df_cities, on="city", how="left")
 df_weather = df_weather.withColumn("uf", upper(expr("split(city, '-')[0]"))) \
                        .withColumn("city", expr("split(city, '-')[1]")) \
                        .withColumn("time", to_timestamp(col("time"))) \
-                       .withColumnRenamed("time", "timestamp")
-
+                       .withColumnRenamed("time", "timestamp") \
+                       .dropDuplicates()
+                       
 df_weather.write.mode("overwrite").parquet(f"s3a://{refined_bucket}/weather_with_coords")
 
-
-############################
+############## Processa dados de Qualidade do Ar ##############
 
 # Lê os dados de qualidade do ar (Parquet)
 df_airquality = spark.read.parquet(f"s3a://{raw_bucket}/airquality/*/*/*/*.parquet")
@@ -66,10 +67,12 @@ df_airquality = df_airquality.join(df_cities, on="city", how="left")
 
 # Quebra o UF-cidade em duas colunas separadas
 df_airquality = df_airquality.withColumn("uf", upper(split("city", "-")[0])) \
-                             .withColumn("city", split("city", "-")[1])
-
+                             .withColumn("city", split("city", "-")[1]) \
+                             .dropDuplicates()
+                             
 df_airquality.write.mode("overwrite").parquet(f"s3a://{refined_bucket}/airquality_with_coords")
 
 ############################
-print("✅ Dados refinados salvos com sucesso!")
+
+print("✅ Dados processados salvos com sucesso!")
 spark.stop()

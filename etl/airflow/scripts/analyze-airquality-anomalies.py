@@ -1,16 +1,19 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, mean, stddev, abs, to_timestamp, hour, expr, when
+from pyspark.sql.functions import col, mean, stddev, abs, to_timestamp, hour, expr, when, split, upper
+import pandas as pd
+import numpy as np
 import os
 
 # MinIO/S3 configs
 minio_endpoint = "http://minio:9000"
 minio_user = os.environ['MINIO_ROOT_USER']
 minio_password = os.environ['MINIO_ROOT_PASSWORD']
-bucket = "raw"
+raw_bucket = "raw"
+refined_bucket = "refined"
 
 spark = (
     SparkSession
-     .builder
+    .builder
     .master("spark://spark-master:7077")
     .appName("Air Quality Anomaly Detection")
     .config("spark.hadoop.fs.s3a.endpoint", minio_endpoint)
@@ -24,14 +27,11 @@ spark = (
     .getOrCreate()
 )
 
-############################
+############## Análise de Qualidade do Ar ##############
 
 # Analisa os dados de qualidade do ar (Parquet)
-df_airquality = spark.read.parquet(f"s3a://{bucket}/airquality/*/*/*/*.parquet")
+df_airquality = spark.read.parquet(f"s3a://{raw_bucket}/airquality/*/*/*/*.parquet")
 df_airquality.printSchema()
-
-# Lê os dados Parquet da qualidade do ar
-df_airquality = spark.read.parquet(f"s3a://{bucket}/airquality/*/*/*/*.parquet")
 
 # Ajusta timestamp se for string
 df_airquality = df_airquality.withColumn("timestamp", to_timestamp(col("timestamp")))
@@ -70,7 +70,7 @@ df_airquality = df_airquality.withColumn(
     .when(col("aqi_z_score") > 2, "moderada")
 )
 
-# Calcula IQR para reforçar detecção robusta de outliers
+# Calcula IQR para outliers
 iqr_stats = df_airquality.groupBy("city", "parameter").agg(
     expr("percentile_approx(value, 0.25)").alias("Q1"),
     expr("percentile_approx(value, 0.75)").alias("Q3")
@@ -96,9 +96,31 @@ df_airquality_anomalies.select(
     "avg_value", "std_value", "aqi_z_score", "anomaly_level", "is_iqr_anomaly"
 ).show(10, truncate=False)
 
+
 # Salva os resultados
-df_airquality_anomalies.write.mode("overwrite").parquet(f"s3a://{bucket}/anomalies/airquality")
+df_airquality_anomalies.write.mode("overwrite").parquet(f"s3a://{raw_bucket}/anomalies/airquality")
+
+############## Refinamento e Coordenadas ##############
+
+# Lê os arquivos de cidades com lat/long
+cities_df = pd.read_json("/shared/cities.json", orient="index").reset_index()
+cities_df.columns = ["city", "lat", "long"]
+cities_dict = cities_df.to_dict(orient="index")
+
+# Anomalias de qualidade do ar
+df_airquality_anomalies = df_airquality_anomalies.join(df_cities, on="city", how="left").drop('hour')
+df_airquality_anomalies.show()
+
+df_airquality_anomalies = df_airquality_anomalies.replace([np.nan, float('inf'), float('-inf')], None)
+df_airquality_anomalies['std_value'] = df_airquality_anomalies['std_value'].replace([np.nan, float('inf'), float('-inf')], 0)
+df_airquality_anomalies['aqi_z_score'] = df_airquality_anomalies['std_value'].replace([np.nan, float('inf'), float('-inf')], 0)
+
+df_airquality_anomalies = df_airquality_anomalies.withColumn("uf", upper(split("city", "-")[0])) \
+                                               .withColumn("city", split("city", "-")[1])\
+                                               .dropDuplicates()
+df_airquality_anomalies.write.mode("overwrite").parquet(f"s3a://{refined_bucket}/airquality_anomalies_with_coords")
 
 ############################
+
 print("✅ Análise de qualidade do ar concluída e salva no MinIO!")
 spark.stop()
