@@ -110,6 +110,7 @@ services:
       - .env
     environment:
       SCRIPT: weather/consumer.py
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     depends_on:
@@ -126,6 +127,7 @@ services:
       - .env
     environment:
       SCRIPT: airquality/consumer.py
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     depends_on:
@@ -142,6 +144,7 @@ services:
     env_file:
       - .env
     environment:
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     ports:
@@ -208,8 +211,9 @@ services:
     ports:
       - "8000:8000"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      FASTAPI_MINIO_ENDPOINT: ${MINIO_ENDPOINT}
+      FASTAPI_MINIO_USER: ${FASTAPI_MINIO_USER}
+      FASTAPI_MINIO_PASSWORD: ${FASTAPI_MINIO_PASSWORD}
     volumes:
       - ./api/src/:/app/
     networks:
@@ -265,6 +269,7 @@ services:
     environment:
       JUPYTER_ENABLE_LAB: yes
       JUPYTER_TOKEN: ${JUPYTER_TOKEN}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT}
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
     ports:

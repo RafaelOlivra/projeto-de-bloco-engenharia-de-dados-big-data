@@ -12,9 +12,9 @@ from models.Weather import WeatherRecord
 from models.WeatherAnomaly import WeatherAnomalyRecord
 
 # MinIO/S3 configs
-minio_endpoint = "http://minio:9000"
-minio_user = os.environ['MINIO_ROOT_USER']
-minio_password = os.environ['MINIO_ROOT_PASSWORD']
+minio_endpoint = os.environ['FASTAPI_MINIO_ENDPOINT']
+minio_user = os.environ['FASTAPI_MINIO_USER']
+minio_password = os.environ['FASTAPI_MINIO_PASSWORD']
 
 s3_fs = s3fs.S3FileSystem(
     key=minio_user,

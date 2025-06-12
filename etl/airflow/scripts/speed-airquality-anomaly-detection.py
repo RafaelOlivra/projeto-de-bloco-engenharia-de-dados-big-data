@@ -6,7 +6,7 @@ import numpy as np
 import os
 
 # MinIO/S3 configs
-minio_endpoint = "http://minio:9000"
+minio_endpoint = os.environ['MINIO_ENDPOINT']
 minio_user = os.environ['MINIO_ROOT_USER']
 minio_password = os.environ['MINIO_ROOT_PASSWORD']
 raw_bucket = "raw"
