@@ -10,15 +10,15 @@ default_args = {
 }
 
 with DAG(
-    'spark-weather-anomaly-detection',
+    'spark-batch-weather-anomaly-detection',
     default_args=default_args,
-    description='Processamento de anomalias de clima',
-    schedule_interval=timedelta(minutes=30), # A cada 30 minutos
+    description='Processamento Batch de Anomalias de Clima',
+    schedule_interval=timedelta(hours=24), # A cada 24 horas
     catchup=False
 ) as dag:
 
     BashOperator(
-        task_id='run_weather_analysis',
-        bash_command='python3 /opt/airflow/etl/analyze-weather-anomalies.py',
+        task_id='run_batch_weather_analysis',
+        bash_command='python3 /opt/airflow/etl/batch-weather-anomaly-detection.py',
     )
 

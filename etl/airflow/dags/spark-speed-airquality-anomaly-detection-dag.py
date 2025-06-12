@@ -10,15 +10,15 @@ default_args = {
 }
 
 with DAG(
-    'spark-airquality-anomaly-detection',
+    'spark-speed-airquality-anomaly-detection',
     default_args=default_args,
-    description='Processamento de anomalias de qualidade do ar',
-    schedule_interval=timedelta(minutes=30), # A cada 30 minutos
+    description='Processamento Speed de Anomalias de Qualidade do Ar',
+    schedule_interval=timedelta(minutes=15), # A cada 15 minutos
     catchup=False
 ) as dag:
     
     BashOperator(
-        task_id='run_aiq_analysis',
-        bash_command='python3 /opt/airflow/etl/analyze-airquality-anomalies.py',
+        task_id='run_speed_aiq_analysis',
+        bash_command='python3 /opt/airflow/etl/speed-airquality-anomaly-detection.py',
     )
 

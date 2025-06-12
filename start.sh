@@ -12,14 +12,28 @@ jar_dest_paths=(
     "./etl/spark/jars"
 )
 
-# Baixa os JARs caso não existam
+# Pasta temporária para downloads
+temp_download_dir="./temp/downloads"
+mkdir -p "$temp_download_dir"
+
+# Baixa os JARs para a pasta temporária caso não existam
 for jar in "${!jar_urls[@]}"; do
     url="${jar_urls[$jar]}"
+    temp_jar_path="$temp_download_dir/$jar"
+
+    if [ ! -f "$temp_jar_path" ]; then
+        echo "Baixando $jar para $temp_download_dir"
+        wget -q "$url" -P "$temp_download_dir"
+    else
+        echo "$jar já existe em $temp_download_dir"
+    fi
+
+    # Copia o JAR da pasta temporária para os destinos finais
     for dest in "${jar_dest_paths[@]}"; do
         mkdir -p "$dest"
         if [ ! -f "$dest/$jar" ]; then
-            echo "Baixando $jar para $dest"
-            wget -q "$url" -P "$dest"
+            echo "Copiando $jar de $temp_download_dir para $dest"
+            cp "$temp_jar_path" "$dest/"
         else
             echo "$jar já existe em $dest"
         fi

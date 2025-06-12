@@ -10,14 +10,15 @@ default_args = {
 }
 
 with DAG(
-    'spark-data-processing',
+    'spark-speed-weather-anomaly-detection',
     default_args=default_args,
-    description='Processamento de dados de clima e qualidade do ar',
-    schedule_interval=timedelta(hours=5), # A cada 5 horas
+    description='Processamento Speed de Anomalias de Clima',
+    schedule_interval=timedelta(minutes=15), # A cada 15 minutos
     catchup=False
 ) as dag:
-    
+
     BashOperator(
-        task_id='run_data_processing',
-        bash_command='python3 /opt/airflow/etl/process-data.py',
+        task_id='run_speed_weather_analysis',
+        bash_command='python3 /opt/airflow/etl/speed-weather-anomaly-detection.py',
     )
+

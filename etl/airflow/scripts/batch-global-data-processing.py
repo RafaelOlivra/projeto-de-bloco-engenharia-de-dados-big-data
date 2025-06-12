@@ -30,9 +30,9 @@ spark = (
 ############################
 
 # Lê os arquivos de cidades com lat/long
-cities_df = pd.read_json("/shared/cities.json", orient="index").reset_index()
-cities_df.columns = ["city", "lat", "long"]
-cities_dict = cities_df.to_dict(orient="index")
+df_cities = pd.read_json("/shared/cities.json", orient="index").reset_index()
+df_cities.columns = ["city", "lat", "long"]
+cities_dict = df_cities.to_dict(orient="index")
 
 # Converte para DataFrame do Spark
 df_cities = spark.createDataFrame(list(cities_dict.values()))

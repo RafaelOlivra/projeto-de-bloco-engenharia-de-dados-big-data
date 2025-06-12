@@ -3,6 +3,9 @@ from pyspark.sql.functions import col, mean, stddev, abs, to_timestamp, hour, ex
 import pandas as pd
 import numpy as np
 import os
+import boto3
+import re
+from datetime import datetime, timedelta
 
 # MinIO/S3 configs
 minio_endpoint = "http://minio:9000"
@@ -11,6 +14,42 @@ minio_password = os.environ['MINIO_ROOT_PASSWORD']
 raw_bucket = "raw"
 refined_bucket = "refined"
 
+TIME_THRESHOLD = 7200  # Últimas 2 horas
+
+# Conexão boto3 com MinIO
+s3 = boto3.client(
+    's3',
+    endpoint_url=minio_endpoint,
+    aws_access_key_id=minio_user,
+    aws_secret_access_key=minio_password,
+    region_name='us-east-1'
+)
+
+# Lista arquivos JSON com timestamp
+def list_recent_weather_keys(bucket, prefix="weather/", seconds=7200):
+    recent_keys = []
+    time_cutoff = datetime.utcnow() - timedelta(seconds=seconds)
+    paginator = s3.get_paginator("list_objects_v2")
+    
+    for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+        for obj in page.get("Contents", []):
+            key = obj["Key"]
+            # Espera formato: weather/city/YYYYMMDD-HHMMSS.json
+            match = re.search(r"/(\d{8}-\d{6})\.json$", key)
+            if match:
+                file_time = datetime.strptime(match.group(1), "%Y%m%d-%H%M%S")
+                if file_time >= time_cutoff:
+                    recent_keys.append(key)
+    return recent_keys
+
+# Lista arquivos recentes
+recent_keys = list_recent_weather_keys(bucket=raw_bucket)
+
+if not recent_keys:
+    print("⚠️ Nenhum dado recente de clima encontrado.")
+    exit(0)
+
+# Inicializa Spark
 spark = (
     SparkSession
     .builder
@@ -29,11 +68,13 @@ spark = (
 
 ############## Análise do Clima ##############
 
-# Analiza os dados de clima (JSON)
-df_weather = spark.read.json(f"s3a://{raw_bucket}/weather/*/*.json")
-df_weather.printSchema()
+# Constrói paths s3a:// dos arquivos recentes
+weather_paths = [f"s3a://{raw_bucket}/{key}" for key in recent_keys]
 
-# Converte o campo de tempo para timestamp se necessário
+# Lê apenas arquivos recentes
+df_weather = spark.read.json(weather_paths)
+
+# Converte o campo de tempo para timestamp
 df_weather = df_weather.withColumn("timestamp", to_timestamp(col("time")))
 
 # Adiciona coluna com hora do dia
@@ -101,9 +142,9 @@ df_weather_anomalies.write.mode("overwrite").parquet(
 ############## Refinamento e Coordenadas ##############
 
 # Lê os arquivos de cidades com lat/long
-cities_df = pd.read_json("/shared/cities.json", orient="index").reset_index()
-cities_df.columns = ["city", "lat", "long"]
-cities_dict = cities_df.to_dict(orient="index")
+df_cities = pd.read_json("/shared/cities.json", orient="index").reset_index()
+df_cities.columns = ["city", "lat", "long"]
+cities_dict = df_cities.to_dict(orient="index")
 
 # Converte para DataFrame do Spark
 df_cities = spark.createDataFrame(list(cities_dict.values()))
@@ -113,12 +154,15 @@ df_weather_anomalies = df_weather_anomalies.join(df_cities, on="city", how="left
 
 # Quebra o UF-cidade em duas colunas separadas
 df_weather_anomalies = df_weather_anomalies.withColumn("uf", upper(split("city", "-")[0])) \
-                                           .withColumn("city", split("city", "-")[1])\
+                                           .withColumn("city", split("city", "-")[1]) \
                                            .dropDuplicates()
-                                           
-df_weather_anomalies.write.mode("overwrite").parquet(f"s3a://{refined_bucket}/weather_anomalies_with_coords")
+
+# Salva no MinIO (refined)
+df_weather_anomalies.write.mode("overwrite").parquet(
+    f"s3a://{refined_bucket}/weather_recent_anomalies_with_coords"
+)
 
 ############################
 
-print("✅ Análise de clima concluída e salva no MinIO!")
+print("✅ Análise de clima recente concluída e salva no MinIO!")
 spark.stop()

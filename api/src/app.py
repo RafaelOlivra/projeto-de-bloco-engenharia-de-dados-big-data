@@ -27,9 +27,8 @@ app = FastAPI()
 
 ########### Dados ###########
 
-def weather_data() -> pd.DataFrame:
+def weather_data(parquet_path: str = "refined/weather_with_coords") -> pd.DataFrame:
     """Busca os dados meteorológicos no MinIO/S3 e retorna como um DataFrame."""
-    parquet_path = "refined/weather_with_coords"
     try:
         df = pd.read_parquet(parquet_path, filesystem=s3_fs)
 
@@ -42,9 +41,8 @@ def weather_data() -> pd.DataFrame:
         raise HTTPException(status_code=500, detail=f"Erro ao ler o arquivo parquet: {str(e)}")
     
 
-def weather_anomaly_data() -> pd.DataFrame:
+def weather_anomaly_data(parquet_path: str = "refined/weather_anomalies_with_coords") -> pd.DataFrame:
     """Busca os dados de anomalias meteorológicas no MinIO/S3 e retorna como um DataFrame."""
-    parquet_path = "refined/weather_anomalies_with_coords"
     try:
         df = pd.read_parquet(parquet_path, filesystem=s3_fs)
 
@@ -57,9 +55,8 @@ def weather_anomaly_data() -> pd.DataFrame:
         raise HTTPException(status_code=500, detail=f"Erro ao ler o arquivo parquet: {str(e)}")
     
 
-def airquality_data() -> pd.DataFrame:
+def airquality_data(parquet_path: str = "refined/airquality_with_coords") -> pd.DataFrame:
     """Busca os dados de qualidade do ar no MinIO/S3 e retorna como um DataFrame."""
-    parquet_path = "refined/airquality_with_coords"
     try:
         df = pd.read_parquet(parquet_path, filesystem=s3_fs)
 
@@ -70,10 +67,9 @@ def airquality_data() -> pd.DataFrame:
         return df
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao ler o arquivo parquet: {str(e)}")
-    
-def airquality_anomaly_data() -> pd.DataFrame:
+
+def airquality_anomaly_data(parquet_path: str = "refined/airquality_anomalies_with_coords") -> pd.DataFrame:
     """Busca os dados de anomalias na qualidade do ar no MinIO/S3 e retorna como um DataFrame."""
-    parquet_path = "refined/airquality_anomalies_with_coords"
     try:
         df = pd.read_parquet(parquet_path, filesystem=s3_fs)
 
@@ -95,10 +91,10 @@ def welcome():
 def get_weather_data(
     limit: int = 1000,
     offset: int = 0,
-    date_from: str = None,
-    date_to: str = None,
-    uf: str = None,
-    city: str = None,
+    date_from: str = "",
+    date_to: str = "",
+    uf: str = "",
+    city: str = "",
 ):
     """
     Recupera dados meteorológicos com filtragem opcional por data.
@@ -108,6 +104,8 @@ def get_weather_data(
         offset (int): Número de registros a serem ignorados (pular).
         date_from (str): Data inicial para filtragem (formato ISO).
         date_to (str): Data final para filtragem (formato ISO).
+        uf (str): Unidade Federativa para filtragem (opcional).
+        city (str): Cidade para filtragem (opcional).
 
     Retorna:
         list[WeatherRecord]: Lista de registros meteorológicos.
@@ -139,10 +137,10 @@ def get_weather_data(
 def get_weather_anomaly_data(
     limit: int = 1000,
     offset: int = 0,
-    date_from: str = None,
-    date_to: str = None,
-    uf: str = None,
-    city: str = None,
+    date_from: str = "",
+    date_to: str = "",
+    uf: str = "",
+    city: str = "",
 ):
     """
     Recupera dados de anomalias meteorológicas com filtragem opcional por data.
@@ -152,6 +150,8 @@ def get_weather_anomaly_data(
         offset (int): Número de registros a serem ignorados (pular).
         date_from (str): Data inicial para filtragem (formato ISO).
         date_to (str): Data final para filtragem (formato ISO).
+        uf (str): Unidade Federativa para filtragem (opcional).
+        city (str): Cidade para filtragem (opcional).
 
     Retorna:
         list[WeatherAnomalyRecord]: Lista de registros de anomalias meteorológicas.
@@ -178,15 +178,50 @@ def get_weather_anomaly_data(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao recuperar dados de anomalias meteorológicas: {str(e)}")
 
+@app.get("/weather/anomalies/recent", response_model=list[WeatherAnomalyRecord], tags=["weather"])
+def get_recent_weather_anomaly_data(
+    limit: int = 1000,
+    offset: int = 0,
+    uf: str = "",
+    city: str = "",
+):
+    """
+    Recupera dados de anomalias meteorológicas recentes (últimas 2 horas) com filtragem opcional por UF e cidade.
+
+    Argumentos:
+        limit (int): Número máximo de registros a serem retornados.
+        offset (int): Número de registros a serem ignorados (pular).
+        uf (str): Unidade Federativa para filtragem (opcional).
+        city (str): Cidade para filtragem (opcional).
+
+    Retorna:
+        list[WeatherAnomalyRecord]: Lista de registros de anomalias meteorológicas.
+    """
+    try:
+        df = weather_anomaly_data(parquet_path="refined/weather_recent_anomalies_with_coords")
+
+        # Filtro por UF e cidade, se fornecido
+        if uf:
+            df = df[df['uf'].str.upper() == uf.upper()]
+        if city:
+            df = df[df['city'].str.upper() == city.upper()]
+
+        return df.to_dict(orient='records')[offset:offset + limit]
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao recuperar dados recentes de anomalias meteorológicas: {str(e)}")
+
 
 @app.get("/airquality", response_model=list[AirQualityRecord], tags=["airquality"])
 def get_airquality_data(
     limit: int = 1000,
     offset: int = 0,
-    date_from: str = None,
-    date_to: str = None,
-    uf: str = None,
-    city: str = None,
+    date_from: str = "",
+    date_to: str = "",
+    uf: str = "",
+    city: str = "",
 ):
     """
     Recupera dados da qualidade do ar com filtragem opcional por data.
@@ -196,6 +231,8 @@ def get_airquality_data(
         offset (int): Número de registros a serem ignorados (pular).
         date_from (str): Data inicial para filtragem (formato ISO).
         date_to (str): Data final para filtragem (formato ISO).
+        uf (str): Unidade Federativa para filtragem (opcional).
+        city (str): Cidade para filtragem (opcional).
 
     Retorna:
         list[AirQualityRecord]: Lista de registros da qualidade do ar.
@@ -227,10 +264,10 @@ def get_airquality_data(
 def get_airquality_anomaly_data(
     limit: int = 1000,
     offset: int = 0,
-    date_from: str = None,
-    date_to: str = None,
-    uf: str = None,
-    city: str = None,
+    date_from: str = "",
+    date_to: str = "",
+    uf: str = "",
+    city: str = "",
 ):
     """
     Recupera dados de anomalias na qualidade do ar com filtragem opcional por data.
@@ -240,6 +277,8 @@ def get_airquality_anomaly_data(
         offset (int): Número de registros a serem ignorados (pular).
         date_from (str): Data inicial para filtragem (formato ISO).
         date_to (str): Data final para filtragem (formato ISO).
+        uf (str): Unidade Federativa para filtragem (opcional).
+        city (str): Cidade para filtragem (opcional).
 
     Retorna:
         list[AirQualityAnomalyRecord]: Lista de registros de anomalias na qualidade do ar.
@@ -268,3 +307,41 @@ def get_airquality_anomaly_data(
         raise e
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao recuperar dados de anomalias na qualidade do ar: {str(e)}")
+    
+@app.get("/airquality/anomalies/recent", response_model=list[AirQualityAnomalyRecord], tags=["airquality"])
+def get_recent_airquality_anomaly_data(
+    limit: int = 1000,
+    offset: int = 0,
+    uf: str = "",
+    city: str = "",
+):
+    """
+    Recupera dados de anomalias na qualidade do ar recentes (últimas 2 horas) com filtragem opcional por UF e cidade.
+
+    Argumentos:
+        limit (int): Número máximo de registros a serem retornados.
+        offset (int): Número de registros a serem ignorados (pular).
+        uf (str): Unidade Federativa para filtragem (opcional).
+        city (str): Cidade para filtragem (opcional).
+
+    Retorna:
+        list[AirQualityAnomalyRecord]: Lista de registros de anomalias na qualidade do ar.
+    """
+    try:
+        df = airquality_anomaly_data(parquet_path="refined/airquality_recent_anomalies_with_coords")
+        df = df.replace([np.nan, float('inf'), float('-inf')], None)
+        df['std_value'] = df['std_value'].replace([np.nan, float('inf'), float('-inf')], 0)
+        df['aqi_z_score'] = df['std_value'].replace([np.nan, float('inf'), float('-inf')], 0)
+
+        # Filtro por UF e cidade, se fornecido
+        if uf:
+            df = df[df['uf'].str.upper() == uf.upper()]
+        if city:
+            df = df[df['city'].str.upper() == city.upper()]
+
+        return df.to_dict(orient='records')[offset:offset + limit]
+
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao recuperar dados recentes de anomalias na qualidade do ar: {str(e)}")

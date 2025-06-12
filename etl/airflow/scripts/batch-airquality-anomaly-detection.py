@@ -103,9 +103,9 @@ df_airquality_anomalies.write.mode("overwrite").parquet(f"s3a://{raw_bucket}/ano
 ############## Refinamento e Coordenadas ##############
 
 # Lê os arquivos de cidades com lat/long
-cities_df = pd.read_json("/shared/cities.json", orient="index").reset_index()
-cities_df.columns = ["city", "lat", "long"]
-cities_dict = cities_df.to_dict(orient="index")
+df_cities = pd.read_json("/shared/cities.json", orient="index").reset_index()
+df_cities.columns = ["city", "lat", "long"]
+cities_dict = df_cities.to_dict(orient="index")
 
 # Anomalias de qualidade do ar
 df_airquality_anomalies = df_airquality_anomalies.join(df_cities, on="city", how="left").drop('hour')
