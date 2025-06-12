@@ -45,9 +45,12 @@ df_airquality = df_airquality.withColumn("hour", hour("timestamp"))
 
 # Remove valores extremos antes de calcular estatísticas (5º e 95º percentil)
 quantiles = df_airquality.approxQuantile("value", [0.05, 0.95], 0.05)
-df_airquality = df_airquality.filter(
-    (col("value") >= quantiles[0]) & (col("value") <= quantiles[1])
-)
+if not quantiles or len(quantiles) < 2:
+    print("⚠️ Não foi possível calcular quantis para o filtro de outliers.")
+else:
+    df_airquality = df_airquality.filter(
+        (col("value") >= quantiles[0]) & (col("value") <= quantiles[1])
+    )
 
 # Calcula estatísticas por cidade, parâmetro e hora
 stats_hourly = df_airquality.groupBy("city", "parameter", "hour").agg(
@@ -107,14 +110,18 @@ df_cities = pd.read_json("/shared/cities.json", orient="index").reset_index()
 df_cities.columns = ["city", "lat", "long"]
 cities_dict = df_cities.to_dict(orient="index")
 
+# Converte para DataFrame do Spark
+df_cities = spark.createDataFrame(list(cities_dict.values()))
+
 # Anomalias de qualidade do ar
 df_airquality_anomalies = df_airquality_anomalies.join(df_cities, on="city", how="left").drop('hour')
 df_airquality_anomalies.show()
 
+# Substitui valores inválidos
 df_airquality_anomalies = df_airquality_anomalies.replace([np.nan, float('inf'), float('-inf')], None)
-df_airquality_anomalies['std_value'] = df_airquality_anomalies['std_value'].replace([np.nan, float('inf'), float('-inf')], 0)
-df_airquality_anomalies['aqi_z_score'] = df_airquality_anomalies['std_value'].replace([np.nan, float('inf'), float('-inf')], 0)
+df_airquality_anomalies = df_airquality_anomalies.fillna({'std_value': 0, 'aqi_z_score': 0})
 
+# Ajusta nomes: UF e cidade separadas
 df_airquality_anomalies = df_airquality_anomalies.withColumn("uf", upper(split("city", "-")[0])) \
                                                .withColumn("city", split("city", "-")[1])\
                                                .dropDuplicates()

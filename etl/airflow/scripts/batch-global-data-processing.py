@@ -36,7 +36,6 @@ cities_dict = df_cities.to_dict(orient="index")
 
 # Converte para DataFrame do Spark
 df_cities = spark.createDataFrame(list(cities_dict.values()))
-df_cities.show()
 
 ############## Processa dados do Clima ##############
 

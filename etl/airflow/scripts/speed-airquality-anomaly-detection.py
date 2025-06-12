@@ -119,10 +119,13 @@ df_airquality_anomalies.select(
 
 ############## Refinamento e Coordenadas ##############
 
-# Leitura de coordenadas das cidades
+# Lê os arquivos de cidades com lat/long
 df_cities = pd.read_json("/shared/cities.json", orient="index").reset_index()
 df_cities.columns = ["city", "lat", "long"]
-df_cities = spark.createDataFrame(df_cities)
+cities_dict = df_cities.to_dict(orient="index")
+
+# Converte para DataFrame do Spark
+df_cities = spark.createDataFrame(list(cities_dict.values()))
 
 # Junta coordenadas
 df_airquality_anomalies = df_airquality_anomalies.join(df_cities, on="city", how="left").drop("hour")
