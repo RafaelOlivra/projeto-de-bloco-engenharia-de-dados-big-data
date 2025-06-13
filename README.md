@@ -23,12 +23,8 @@ A **Arquitetura Lambda** combina duas abordagens de processamento:
 -   **Batch Layer (lote)**: fornece resultados completos e consistentes a partir de dados históricos.
 -   **Serving Layer**: expõe os dados para uso externo, como APIs, dashboards e análises.
 
-### Fluxo Resumido
 
-```text
-[Producers] ─▶ [Kafka] ─▶ [Consumers] ─▶ [MinIO] ─▶ [API]
-                         └────▶ [Airflow + Spark] ──▶ [MinIO]
-```
+![alt text](arquitetura.png)
 
 ---
 
