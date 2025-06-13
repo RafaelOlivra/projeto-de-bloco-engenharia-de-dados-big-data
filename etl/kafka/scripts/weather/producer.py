@@ -1,7 +1,7 @@
 import json, time, requests, os, sys
 from kafka import KafkaProducer
 
-# Allow to include parent directory in sys.path
+# Permite incluir o diretório pai no sys.path
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, parent_dir)
 
@@ -24,14 +24,18 @@ def get_weather(city, lat, lon):
             data["city"] = city
             return data
     except Exception as e:
-        print(f"Error fetching weather for {city}: {e}")
+        print(f"Erro ao buscar o clima para {city}: {e}")
     return None
 
 while True:
     for city, coords in cities.items():
         weather = get_weather(city, coords["lat"], coords["lon"])
         if weather:
-            print(f"Sending weather for {city}: {weather}")
+            print(f"Enviando dados de clima de {city}: {weather}")
             producer.send("weather", weather)
-    random_delay = 5 + (time.time() % 10)  # Random delay between 5 and 15 seconds
+
+    # Atraso aleatório entre 5 e 15 segundos
+    random_delay = 5 + (time.time() % 10)
+
+    # Espera 15 minutos mais o atraso aleatório
     time.sleep(15 * 60 + random_delay)

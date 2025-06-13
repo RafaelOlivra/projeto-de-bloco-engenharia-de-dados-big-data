@@ -33,7 +33,7 @@ s3 = boto3.client('s3',
     region_name='us-east-1'
 )
 
-# Ensure bucket exists
+# Verifica se o bucket existe, caso contrário cria
 try:
     s3.head_bucket(Bucket=BUCKET_NAME)
 except:
@@ -73,13 +73,13 @@ def save_parquet_to_minio(data_list):
         buffer_io,
         index=False,
         engine='pyarrow',
-        coerce_timestamps='us'  # <-- evita TIMESTAMP(NANOS)
+        coerce_timestamps='us'
     )
     buffer_io.seek(0)
 
     # Upload para MinIO
+    print(f"📥 Salvando {len(data_list)} registros no MinIO como {key}")
     s3.put_object(Bucket=BUCKET_NAME, Key=key, Body=buffer_io.read())
-    print(f"📥 Saved batch with {len(data_list)} records as {key}")
 
 
 for message in consumer:

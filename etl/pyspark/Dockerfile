@@ -21,9 +21,4 @@ EXPOSE 8888 4040
 
 ENV JUPYTER_TOKEN=changeme
 
-CMD jupyter lab \
-    --port-retries=0 \
-    --ip=0.0.0.0 \
-    --allow-root \
-    --NotebookApp.token="${JUPYTER_TOKEN}" \
-    --ServerApp.password=""
+CMD ["jupyter", "lab", "--port-retries=0", "--ip=0.0.0.0", "--allow-root", "--NotebookApp.token=${JUPYTER_TOKEN}", "--ServerApp.password="]

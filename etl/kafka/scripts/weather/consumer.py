@@ -14,7 +14,7 @@ MINIO_ACCESS_KEY = os.environ['MINIO_ROOT_USER']
 MINIO_SECRET_KEY = os.environ['MINIO_ROOT_PASSWORD']
 BUCKET_NAME = 'raw'
 
-# Start Kafka consumer
+# Inicializa o consumidor Kafka
 consumer = KafkaConsumer(
     KAFKA_TOPIC,
     bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS,
@@ -23,7 +23,7 @@ consumer = KafkaConsumer(
     enable_auto_commit=True
 )
 
-# Connect to MinIO
+# Conecta ao MinIO
 s3 = boto3.client('s3',
     endpoint_url=f'http://{MINIO_ENDPOINT}',
     aws_access_key_id=MINIO_ACCESS_KEY,
@@ -31,7 +31,7 @@ s3 = boto3.client('s3',
     region_name='us-east-1'
 )
 
-# Ensure bucket exists
+# Verifica se o bucket existe
 try:
     s3.head_bucket(Bucket=BUCKET_NAME)
 except:
@@ -44,5 +44,5 @@ for message in consumer:
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     key = f"weather/{city}/{timestamp}.json"
     
+    print(f"📥 Salvando dados de clima no MinIO como {key}")
     s3.put_object(Bucket=BUCKET_NAME, Key=key, Body=json.dumps(data).encode('utf-8'))
-    print(f"📥 Saved weather data to MinIO as {key}")
